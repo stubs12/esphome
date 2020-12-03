@@ -210,11 +210,15 @@ void Tuya::handle_command_(uint8_t command, uint8_t version, const uint8_t *buff
           if (day_of_week == 0) {
             day_of_week = 7;
           }
-          this->send_command_(TuyaCommand{ .cmd = TuyaCommandType::LOCAL_TIME_QUERY, .payload = std::vector<uint8_t>{0x01, year, month, day_of_month, hour, minute, second, day_of_week}});
+          this->send_command_(TuyaCommand{
+              .cmd = TuyaCommandType::LOCAL_TIME_QUERY,
+              .payload = std::vector<uint8_t>{0x01, year, month, day_of_month, hour, minute, second, day_of_week}});
         } else {
           ESP_LOGW(TAG, "TUYA_CMD_LOCAL_TIME_QUERY is not handled because time is not valid");
           // By spec we need to notify MCU that the time was not obtained
-          this->send_command_(TuyaCommand{.cmd = TuyaCommandType::LOCAL_TIME_QUERY, .payload = std::vector<uint8_t>{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}});
+          this->send_command_(
+              TuyaCommand{.cmd = TuyaCommandType::LOCAL_TIME_QUERY,
+                          .payload = std::vector<uint8_t>{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}});
         }
       } else {
         ESP_LOGW(TAG, "TUYA_CMD_LOCAL_TIME_QUERY is not handled because time is not configured");
