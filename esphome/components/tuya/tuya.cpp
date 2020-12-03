@@ -9,9 +9,7 @@ static const char *TAG = "tuya";
 static const int COMMAND_DELAY = 50;
 
 void Tuya::setup() {
-  this->set_interval("heartbeat", 1000, [this] {
-      this->send_empty_command_(TuyaCommandType::HEARTBEAT);
-  });
+  this->set_interval("heartbeat", 1000, [this] { this->send_empty_command_(TuyaCommandType::HEARTBEAT); });
 }
 
 void Tuya::loop() {
@@ -162,11 +160,7 @@ void Tuya::handle_command_(uint8_t command, uint8_t version, const uint8_t *buff
           // If we were following the spec to the letter we would send
           // state updates until connected to both WiFi and API/MQTT.
           // Instead we just claim to be connected immediately and move on.
-          auto command = TuyaCommand{
-              .cmd = TuyaCommandType::WIFI_STATE,
-              .payload = std::vector<uint8_t>{0x04}
-          };
-          this->send_command_(command);
+          this->send_command_(TuyaCommand{.cmd = TuyaCommandType::WIFI_STATE, .payload = std::vector<uint8_t>{0x04}});
         }
       }
       break;
@@ -195,11 +189,7 @@ void Tuya::handle_command_(uint8_t command, uint8_t version, const uint8_t *buff
     case TuyaCommandType::DATAPOINT_QUERY:
       break;
     case TuyaCommandType::WIFI_TEST: {
-      auto command = TuyaCommand{
-          .cmd = TuyaCommandType::WIFI_TEST,
-          .payload = std::vector<uint8_t>{0x00, 0x00}
-      };
-      this->send_command_(command);
+      this->send_command_(TuyaCommand{.cmd = TuyaCommandType::WIFI_TEST, .payload = std::vector<uint8_t>{0x00, 0x00}});
       break;
     }
     case TuyaCommandType::LOCAL_TIME_QUERY: {
@@ -220,19 +210,11 @@ void Tuya::handle_command_(uint8_t command, uint8_t version, const uint8_t *buff
           if (day_of_week == 0) {
             day_of_week = 7;
           }
-          auto command = TuyaCommand{
-              .cmd = TuyaCommandType::LOCAL_TIME_QUERY,
-              .payload = std::vector<uint8_t>{0x01, year, month, day_of_month, hour, minute, second, day_of_week}
-          };
-          this->send_command_(command);
+          this->send_command_(TuyaCommand{ .cmd = TuyaCommandType::LOCAL_TIME_QUERY, .payload = std::vector<uint8_t>{0x01, year, month, day_of_month, hour, minute, second, day_of_week}});
         } else {
           ESP_LOGW(TAG, "TUYA_CMD_LOCAL_TIME_QUERY is not handled because time is not valid");
           // By spec we need to notify MCU that the time was not obtained
-          auto command = TuyaCommand{
-              .cmd = TuyaCommandType::LOCAL_TIME_QUERY,
-              .payload = std::vector<uint8_t>{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
-          };
-          this->send_command_(command);
+          this->send_command_(TuyaCommand{.cmd = TuyaCommandType::LOCAL_TIME_QUERY, .payload = std::vector<uint8_t>{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}});
         }
       } else {
         ESP_LOGW(TAG, "TUYA_CMD_LOCAL_TIME_QUERY is not handled because time is not configured");
@@ -330,11 +312,12 @@ void Tuya::send_raw_command_(TuyaCommand command) {
            hexencode(command.payload.data(), command.payload.size()).c_str(), this->init_state_);
 
   this->write_array({0x55, 0xAA, version, (uint8_t) command.cmd, len_hi, len_lo});
-  if (command.payload.size() != 0)
+  if (!command.payload.empty())
     this->write_array(command.payload.data(), command.payload.size());
 
   uint8_t checksum = 0x55 + 0xAA + (uint8_t) command.cmd + len_hi + len_lo;
-  for (auto &data : command.payload) checksum += data;
+  for (auto &data : command.payload)
+    checksum += data;
   this->write_byte(checksum);
 }
 
@@ -346,21 +329,19 @@ void Tuya::process_command_queue_() {
     this->command_queue_.pop_front();
   }
   // if queue is empty shut down queue processing
-  if (command_queue_.empty()) this->cancel_interval("process_command_queue");
+  if (command_queue_.empty())
+    this->cancel_interval("process_command_queue");
 }
 
 void Tuya::send_command_(TuyaCommand command) {
   // otw buffer data and start scheduling queue processing if needed
   command_queue_.push_back(command);
-  if (command_queue_.size() == 1) this->set_interval("process_command_queue", COMMAND_DELAY, [this]() { this->process_command_queue_(); });
+  if (command_queue_.size() == 1)
+    this->set_interval("process_command_queue", COMMAND_DELAY, [this]() { this->process_command_queue_(); });
 }
 
 void Tuya::send_empty_command_(TuyaCommandType command) {
-  auto cmd = TuyaCommand{
-      .cmd = command,
-      .payload = std::vector<uint8_t>{0x04}
-  };
-  send_command_(cmd);
+  send_command_(TuyaCommand{.cmd = command, .payload = std::vector<uint8_t>{0x04}});
 }
 
 void Tuya::set_datapoint_value(TuyaDatapoint datapoint) {
@@ -414,11 +395,7 @@ void Tuya::set_datapoint_value(TuyaDatapoint datapoint) {
   buffer.push_back(data.size() >> 0);
   buffer.insert(buffer.end(), data.begin(), data.end());
 
-  auto command = TuyaCommand{
-      .cmd = TuyaCommandType::DATAPOINT_DELIVER,
-      .payload = buffer
-  };
-  this->send_command_(command);
+  this->send_command_(TuyaCommand{.cmd = TuyaCommandType::DATAPOINT_DELIVER, .payload = buffer});
 }
 
 void Tuya::register_listener(uint8_t datapoint_id, const std::function<void(TuyaDatapoint)> &func) {
