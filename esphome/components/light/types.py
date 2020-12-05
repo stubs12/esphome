@@ -24,6 +24,7 @@ LightIsOffCondition = light_ns.class_('LightIsOffCondition', automation.Conditio
 # Triggers
 LightTurnOnTrigger = light_ns.class_('LightTurnOnTrigger', automation.Trigger.template())
 LightTurnOffTrigger = light_ns.class_('LightTurnOffTrigger', automation.Trigger.template())
+LightBrightnessTrigger = light_ns.class_('LightBrightnessTrigger', automation.Trigger.template())
 
 # Effects
 LightEffect = light_ns.class_('LightEffect')
