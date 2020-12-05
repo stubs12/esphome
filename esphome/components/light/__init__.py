@@ -5,14 +5,14 @@ from esphome.components import mqtt, power_supply
 from esphome.const import CONF_COLOR_CORRECT, \
     CONF_DEFAULT_TRANSITION_LENGTH, CONF_EFFECTS, CONF_GAMMA_CORRECT, CONF_ID, \
     CONF_INTERNAL, CONF_NAME, CONF_MQTT_ID, CONF_POWER_SUPPLY, CONF_RESTORE_MODE, \
-    CONF_ON_TURN_OFF, CONF_ON_TURN_ON, CONF_ON_BRIGHTNESS, CONF_TRIGGER_ID
+    CONF_ON_TURN_OFF, CONF_ON_TURN_ON, CONF_TRIGGER_ID
 from esphome.core import coroutine, coroutine_with_priority
 from .automation import light_control_to_code  # noqa
 from .effects import validate_effects, BINARY_EFFECTS, \
     MONOCHROMATIC_EFFECTS, RGB_EFFECTS, ADDRESSABLE_EFFECTS, EFFECTS_REGISTRY
 from .types import (  # noqa
     LightState, AddressableLightState, light_ns, LightOutput, AddressableLight, \
-    LightTurnOnTrigger, LightTurnOffTrigger, LightBrightnessTrigger)
+    LightTurnOnTrigger, LightTurnOffTrigger)
 
 CODEOWNERS = ['@esphome/core']
 IS_PLATFORM_COMPONENT = True
@@ -35,9 +35,6 @@ LIGHT_SCHEMA = cv.MQTT_COMMAND_COMPONENT_SCHEMA.extend({
     }),
     cv.Optional(CONF_ON_TURN_OFF): auto.validate_automation({
         cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(LightTurnOffTrigger),
-    }),
-    cv.Optional(CONF_ON_BRIGHTNESS): auto.validate_automation({
-        cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(LightBrightnessTrigger),
     }),
 })
 
@@ -79,9 +76,6 @@ def setup_light_core_(light_var, output_var, config):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], light_var)
         yield auto.build_automation(trigger, [], conf)
     for conf in config.get(CONF_ON_TURN_OFF, []):
-        trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], light_var)
-        yield auto.build_automation(trigger, [], conf)
-    for conf in config.get(CONF_ON_BRIGHTNESS, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], light_var)
         yield auto.build_automation(trigger, [], conf)
 
