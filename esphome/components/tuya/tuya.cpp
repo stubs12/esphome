@@ -18,6 +18,7 @@ void Tuya::loop() {
     this->read_byte(&c);
     this->handle_char_(c);
   }
+  process_command_queue_();
 }
 
 void Tuya::dump_config() {
@@ -33,6 +34,8 @@ void Tuya::dump_config() {
       ESP_LOGCONFIG(TAG, "  Datapoint %d: switch (value: %s)", info.id, ONOFF(info.value_bool));
     else if (info.type == TuyaDatapointType::INTEGER)
       ESP_LOGCONFIG(TAG, "  Datapoint %d: int value (value: %d)", info.id, info.value_int);
+    else if (info.type == TuyaDatapointType::STRING)
+      ESP_LOGCONFIG(TAG, "  Datapoint %d: string value (value: %s)", info.id, info.value_string.c_str());
     else if (info.type == TuyaDatapointType::ENUM)
       ESP_LOGCONFIG(TAG, "  Datapoint %d: enum (value: %d)", info.id, info.value_enum);
     else if (info.type == TuyaDatapointType::BITMASK)
@@ -267,6 +270,9 @@ void Tuya::handle_datapoint_(const uint8_t *buffer, size_t len) {
         return;
       datapoint.value_uint = encode_uint32(data[0], data[1], data[2], data[3]);
       break;
+    case TuyaDatapointType::STRING:
+      datapoint.value_string = std::string(reinterpret_cast<const char *>(data), data_len);
+      break;
     case TuyaDatapointType::ENUM:
       if (data_len != 1)
         return;
@@ -325,18 +331,18 @@ void Tuya::process_command_queue_() {
   // Left check of delay since last command in case theres ever a command sent by calling send_raw_command_ directly
   if (delay > COMMAND_DELAY && !command_queue_.empty()) {
     this->send_raw_command_(command_queue_.front());
-    this->command_queue_.pop_front();
+    this->command_queue_.erase(command_queue_.begin());
   }
-  // if queue is empty shut down queue processing
-  if (command_queue_.empty())
-    this->cancel_interval("process_command_queue");
 }
 
 void Tuya::send_command_(TuyaCommand command) {
-  // otw buffer data and start scheduling queue processing if needed
-  command_queue_.push_back(command);
-  if (command_queue_.size() == 1)
-    this->set_interval("process_command_queue", COMMAND_DELAY, [this]() { this->process_command_queue_(); });
+  uint32_t delay = millis() - this->last_command_timestamp_;
+  // check if COMMAND_DELAY has already elapsed and no queued command, if so bypass queue and send command immediately
+  if (command_queue_.empty() && delay > COMMAND_DELAY)
+    this->send_raw_command_(command);
+  // otherwise queue command to be sent when COMMAND_DELAY has elapsed
+  else
+    command_queue_.push_back(command);
 }
 
 void Tuya::send_empty_command_(TuyaCommandType command) {
@@ -348,7 +354,13 @@ void Tuya::set_datapoint_value(TuyaDatapoint datapoint) {
   ESP_LOGV(TAG, "Datapoint %u set to %u", datapoint.id, datapoint.value_uint);
   for (auto &other : this->datapoints_) {
     if (other.id == datapoint.id) {
-      if (other.value_uint == datapoint.value_uint) {
+      // String value is stored outside the union; must be checked separately.
+      if (datapoint.type == TuyaDatapointType::STRING) {
+        if (other.value_string == datapoint.value_string) {
+          ESP_LOGV(TAG, "Not sending unchanged value");
+          return;
+        }
+      } else if (other.value_uint == datapoint.value_uint) {
         ESP_LOGV(TAG, "Not sending unchanged value");
         return;
       }
@@ -367,6 +379,11 @@ void Tuya::set_datapoint_value(TuyaDatapoint datapoint) {
       data.push_back(datapoint.value_uint >> 16);
       data.push_back(datapoint.value_uint >> 8);
       data.push_back(datapoint.value_uint >> 0);
+      break;
+    case TuyaDatapointType::STRING:
+      for (char const &c : datapoint.value_string) {
+        data.push_back(c);
+      }
       break;
     case TuyaDatapointType::ENUM:
       data.push_back(datapoint.value_enum);

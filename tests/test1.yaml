@@ -26,6 +26,25 @@ esphome:
           green: !lambda 'return 255;'
           blue: 0%
           white: 100%
+      - http_request.get:
+          url: https://esphome.io
+          headers:
+            Content-Type: application/json
+          verify_ssl: false
+      - http_request.post:
+          url: https://esphome.io
+          verify_ssl: false
+          json:
+            key: !lambda |-
+              return id(template_text).state;
+            greeting: 'Hello World'
+      - http_request.send:
+          method: PUT
+          url: https://esphome.io
+          headers:
+            Content-Type: application/json
+          body: 'Some data'
+          verify_ssl: false
   build_path: build/test1
 
 packages:
@@ -49,6 +68,10 @@ wifi:
   domain: .local
   reboot_timeout: 120s
   power_save_mode: none
+
+http_request:
+  useragent: esphome/device
+  timeout: 10s
 
 mqtt:
   broker: '192.168.178.84'
@@ -210,7 +233,6 @@ mcp23s17:
   - id: 'mcp23s17_hub'
     cs_pin: GPIO12
     deviceaddress: 1
-
 
 sensor:
   - platform: adc
@@ -434,6 +456,9 @@ sensor:
     power:
       name: 'HLW8012 Power'
       id: hlw8012_power
+    energy:
+      name: "HLW8012 Energy"
+      id: hlw8012_energy
     update_interval: 15s
     current_resistor: 0.001 ohm
     voltage_divider: 2351
@@ -1169,6 +1194,8 @@ output:
   - platform: esp32_dac
     pin: GPIO25
     id: dac_output
+  - platform: mcp4725
+    id: mcp4725_dac_output
 
 e131:
 
@@ -1538,6 +1565,9 @@ switch:
       - output.set_level:
           id: dac_output
           level: !lambda 'return 0.5;'
+      - output.set_level:
+          id: mcp4725_dac_output
+          level: !lambda 'return 0.5;'
     turn_off_action:
       - switch.turn_on: living_room_lights_off
     restore_state: False
@@ -1726,7 +1756,7 @@ display:
     lambda: |-
       it.rectangle(0, 0, it.get_width(), it.get_height());
   - platform: ssd1322_spi
-    model: "SSD1322 256x64"
+    model: 'SSD1322 256x64'
     cs_pin: GPIO23
     dc_pin: GPIO23
     reset_pin: GPIO23
@@ -1794,10 +1824,10 @@ display:
     dc_pin: GPIO16
     reset_pin: GPIO23
     rotation: 0
-    devicewidth: 128
-    deviceheight: 160
-    colstart: 0
-    rowstart: 0
+    device_width: 128
+    device_height: 160
+    col_start: 0
+    row_start: 0
     lambda: |-
       it.rectangle(0, 0, it.get_width(), it.get_height());
 tm1651:
@@ -1862,8 +1892,7 @@ time:
     update_interval: never
     on_time:
       seconds: 0
-      then:
-        ds1307.read_time
+      then: ds1307.read_time
 
 cover:
   - platform: template
@@ -1891,10 +1920,12 @@ pcf8574:
 
 mcp23017:
   - id: 'mcp23017_hub'
+    open_drain_interrupt: 'true'
 
 mcp23008:
   - id: 'mcp23008_hub'
     address: 0x22
+    open_drain_interrupt: 'true'
 
 mcp23016:
   - id: 'mcp23016_hub'
