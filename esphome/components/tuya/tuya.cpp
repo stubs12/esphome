@@ -18,6 +18,7 @@ void Tuya::loop() {
     this->read_byte(&c);
     this->handle_char_(c);
   }
+  process_command_queue_();
 }
 
 void Tuya::dump_config() {
@@ -330,18 +331,18 @@ void Tuya::process_command_queue_() {
   // Left check of delay since last command in case theres ever a command sent by calling send_raw_command_ directly
   if (delay > COMMAND_DELAY && !command_queue_.empty()) {
     this->send_raw_command_(command_queue_.front());
-    this->command_queue_.pop_front();
+    this->command_queue_.erase(command_queue_.begin());
   }
-  // if queue is empty shut down queue processing
-  if (command_queue_.empty())
-    this->cancel_interval("process_command_queue");
 }
 
 void Tuya::send_command_(TuyaCommand command) {
-  // otw buffer data and start scheduling queue processing if needed
-  command_queue_.push_back(command);
-  if (command_queue_.size() == 1)
-    this->set_interval("process_command_queue", COMMAND_DELAY, [this]() { this->process_command_queue_(); });
+  uint32_t delay = millis() - this->last_command_timestamp_;
+  // check if COMMAND_DELAY has already elapsed and no queued command, if so bypass queue and send command immediately
+  if (command_queue_.empty() && delay > COMMAND_DELAY)
+    this->send_raw_command_(command);
+  // otherwise queue command to be sent when COMMAND_DELAY has elapsed
+  else
+    command_queue_.push_back(command);
 }
 
 void Tuya::send_empty_command_(TuyaCommandType command) {
